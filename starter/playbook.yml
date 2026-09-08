@@ -1,2 +1,53 @@
-- hosts: aws
+---
+- name: Configure AWS web servers
+  hosts: aws
   become: true
+
+  vars:
+    # Add this only if your course requires it here.
+    # ports is already supplied by group_vars/aws.yml
+
+  tasks:
+
+    - name: Install firewalld
+      ansible.builtin.package:
+        name: firewalld
+        state: present
+
+    - name: Start firewalld
+      ansible.builtin.service:
+        name: firewalld
+        state: started
+        enabled: true
+
+    - name: Open required ports
+      ansible.posix.firewalld:
+        port: "{{ item }}/tcp"
+        permanent: true
+        immediate: true
+        state: enabled
+      loop: "{{ ports }}"
+
+    - name: Check companyplus directory
+      block:
+
+        - name: Check if companyplus directory exists
+          ansible.builtin.stat:
+            path: /var/www/html/www.companyplus.com
+          register: companyplus_directory
+
+        - name: Display directory error
+          ansible.builtin.debug:
+            msg: "ERROR: /var/www/html/www.companyplus.com does not exist"
+          when: not companyplus_directory.stat.exists
+
+        - name: Display directory exists message
+          ansible.builtin.debug:
+            msg: "/var/www/html/www.companyplus.com exists"
+          when: companyplus_directory.stat.exists
+
+  roles:
+    - role: webserver
+      app_root: html_demo_site-main
+      server_name: "{{ ansible_default_ipv4.address }}"
+      document_root: /var/www/html
